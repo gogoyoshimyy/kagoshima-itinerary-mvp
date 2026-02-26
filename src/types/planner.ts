@@ -9,6 +9,9 @@ export interface TripItem {
     lng: number
     stay_minutes: number
     travel_mode: TravelMode
+    place_id?: string | null
+    type?: 'spot' | 'lunch_placeholder' | 'dinner_placeholder'
+    budget?: string
 }
 
 export interface TripSegment {
