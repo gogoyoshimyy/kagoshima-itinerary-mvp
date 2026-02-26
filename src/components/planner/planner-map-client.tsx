@@ -26,24 +26,46 @@ function MapController({ items, previewSpot }: { items: TripItem[], previewSpot?
     const prevItemsLength = useRef(items.length)
 
     useEffect(() => {
-        if (previewSpot) {
-            // Fly to preview spot instead of fitting items bounds
-            map.flyTo([previewSpot.lat, previewSpot.lng], 14, { duration: 1.5 })
-        } else if (items.length > prevItemsLength.current) {
-            // A new item was added, fly to it
-            const newestItem = items[items.length - 1]
-            if (newestItem) {
-                map.flyTo([newestItem.lat, newestItem.lng], 14, { duration: 1.5 })
+        // Robust coordinate check helper
+        const isValid = (lat: any, lng: any) => {
+            const l1 = Number(lat);
+            const l2 = Number(lng);
+            return !isNaN(l1) && !isNaN(l2) && isFinite(l1) && isFinite(l2);
+        };
+
+        try {
+            if (previewSpot && isValid(previewSpot.lat, previewSpot.lng)) {
+                // Fly to preview spot
+                const lat = Number(previewSpot.lat);
+                const lng = Number(previewSpot.lng);
+                map.flyTo([lat, lng], 14, { duration: 1.5 });
+            } else if (items.length > prevItemsLength.current) {
+                // A new item was added, fly to it
+                const newestItem = items[items.length - 1];
+                if (newestItem && isValid(newestItem.lat, newestItem.lng)) {
+                    const lat = Number(newestItem.lat);
+                    const lng = Number(newestItem.lng);
+                    console.log(`MapController: flying to [${lat}, ${lng}] for ${newestItem.spot_name}`);
+                    map.flyTo([lat, lng], 14, { duration: 1.5 });
+                }
+            } else if (items.length > 1 && items.length === prevItemsLength.current) {
+                // Fit bounds
+                const validPoints = items
+                    .filter(i => isValid(i.lat, i.lng))
+                    .map(i => [Number(i.lat), Number(i.lng)] as [number, number]);
+
+                if (validPoints.length > 0) {
+                    const bounds = L.latLngBounds(validPoints);
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            } else if (items.length === 1 && prevItemsLength.current === 0) {
+                // First item
+                if (isValid(items[0].lat, items[0].lng)) {
+                    map.flyTo([Number(items[0].lat), Number(items[0].lng)], 13);
+                }
             }
-        } else if (items.length > 1 && items.length === prevItemsLength.current) {
-            // Just normal load or reorder, fit bounds (only if no preview spot)
-            // Need to be careful not to fit bounds immediately after flying somewhere
-            // In a real app we might want a 'lastAction' state, but this is okay for MVP
-            const bounds = L.latLngBounds(items.map(i => [i.lat, i.lng]))
-            map.fitBounds(bounds, { padding: [50, 50] })
-        } else if (items.length === 1 && prevItemsLength.current === 0) {
-            // First item added
-            map.flyTo([items[0].lat, items[0].lng], 13)
+        } catch (e) {
+            console.error("MapController Error:", e);
         }
 
         prevItemsLength.current = items.length;
@@ -55,8 +77,13 @@ function MapController({ items, previewSpot }: { items: TripItem[], previewSpot?
 export default function PlannerMapClient({ items, previewSpot }: PlannerMapClientProps) {
     // Default to Kagoshima center if no items exist
     const center = useMemo<[number, number]>(() => {
-        if (items.length > 0) {
-            return [items[0].lat, items[0].lng]
+        const firstValid = items.find(i => {
+            const lat = Number(i.lat);
+            const lng = Number(i.lng);
+            return !isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng);
+        });
+        if (firstValid) {
+            return [Number(firstValid.lat), Number(firstValid.lng)]
         }
         return [31.5969, 130.5571] // Kagoshima City
     }, [items])
@@ -76,9 +103,9 @@ export default function PlannerMapClient({ items, previewSpot }: PlannerMapClien
             <MapController items={items} previewSpot={previewSpot} />
 
             {/* Preview Spot Marker */}
-            {previewSpot && (
+            {previewSpot && !isNaN(Number(previewSpot.lat)) && !isNaN(Number(previewSpot.lng)) && (
                 <Marker
-                    position={[previewSpot.lat, previewSpot.lng]}
+                    position={[Number(previewSpot.lat), Number(previewSpot.lng)]}
                     icon={L.divIcon({
                         html: `<div style="background-color: #ef4444; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); animation: bounce 1s infinite alternate;">📍</div>`,
                         className: 'custom-div-icon preview-icon',
@@ -91,6 +118,10 @@ export default function PlannerMapClient({ items, previewSpot }: PlannerMapClien
 
             {/* Markers for Spots */}
             {items.map((item, index) => {
+                const lat = Number(item.lat);
+                const lng = Number(item.lng);
+                if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) return null;
+
                 // Create a custom numbered icon
                 const icon = L.divIcon({
                     html: `<div style="background-color: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">${index + 1}</div>`,
@@ -102,7 +133,7 @@ export default function PlannerMapClient({ items, previewSpot }: PlannerMapClien
                 return (
                     <Marker
                         key={item.id}
-                        position={[item.lat, item.lng]}
+                        position={[lat, lng]}
                         icon={icon}
                     />
                 )
