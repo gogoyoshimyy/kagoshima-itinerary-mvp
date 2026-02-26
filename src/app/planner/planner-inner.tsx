@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { MapPin, Navigation, Compass, Plus, Search, Save } from "lucide-react"
+import { MapPin, Navigation, Compass, Plus, Search, Save, Clock } from "lucide-react"
 import { TripTimeline } from "@/components/planner/timeline/trip-timeline"
 import { ItineraryScoreMeter } from "@/components/planner/itinerary-score-meter"
 import { RecommendationPanel } from "@/components/planner/recommendation-panel"
@@ -197,15 +197,17 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
             <section className="flex-1 max-w-lg bg-slate-50 flex flex-col border-r border-slate-200">
                 {items.length === 0 ? (
                     mode === 'schedule' ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6 overflow-y-auto">
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-500">
-                                <Search className="w-8 h-8" />
-                            </div>
-                            <div className="space-y-2">
-                                <h2 className="text-xl font-bold text-slate-800">空き時間を埋める</h2>
-                                <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                                    到着時間や出発時間など、確定している予定を入力してください。
-                                </p>
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 overflow-y-auto bg-white/40 backdrop-blur-sm">
+                            <div className="space-y-4">
+                                <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center shadow-xl mx-auto rotate-3 group-hover:rotate-0 transition-transform">
+                                    <Clock className="w-10 h-10" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">スケジュールを埋める</h2>
+                                    <p className="text-slate-500 text-base max-w-sm mx-auto font-medium">
+                                        旅の「枠組み」から始めましょう。<br />出発と到着の場所・時間を教えてください。
+                                    </p>
+                                </div>
                             </div>
 
                             <form onSubmit={async (e) => {
@@ -296,15 +298,17 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                             </form>
                         </div>
                     ) : mode === 'must_visit' ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
-                            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500">
-                                <MapPin className="w-8 h-8" />
-                            </div>
-                            <div className="space-y-2">
-                                <h2 className="text-xl font-bold text-slate-800">絶対外せないスポットから始める</h2>
-                                <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                                    今回の旅のメインとなる目的や、絶対に行きたい場所を検索して追加してください。
-                                </p>
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 bg-white/40 backdrop-blur-sm">
+                            <div className="space-y-4">
+                                <div className="w-20 h-20 bg-emerald-600 text-white rounded-3xl flex items-center justify-center shadow-xl mx-auto -rotate-3 group-hover:rotate-0 transition-transform">
+                                    <MapPin className="w-10 h-10" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">絶対行きたい場所から</h2>
+                                    <p className="text-slate-500 text-base max-w-sm mx-auto font-medium">
+                                        今回の旅の「主役」を教えてください。<br />そこを中心にAIがルートを組み立てます。
+                                    </p>
+                                </div>
                             </div>
 
                             <form onSubmit={(e) => {
@@ -350,14 +354,16 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                         </div>
                     ) : (
                         <div className="flex-1 flex flex-col p-8 overflow-y-auto">
-                            <div className="text-center space-y-2 mb-8 mt-4">
-                                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-4">
-                                    <Compass className="w-8 h-8" />
+                            <div className="text-center space-y-4 mb-10 mt-6">
+                                <div className="w-20 h-20 bg-rose-600 text-white rounded-3xl flex items-center justify-center shadow-xl mx-auto rotate-6 group-hover:rotate-0 transition-transform">
+                                    <Compass className="w-10 h-10" />
                                 </div>
-                                <h2 className="text-xl font-bold text-slate-800">気になる場所を選んでおまかせ生成</h2>
-                                <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                                    行きたい場所をいくつか選ぶだけで、AIが効率よく回れる最適なルートを提案します。
-                                </p>
+                                <div className="space-y-2">
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">インスピレーションから</h2>
+                                    <p className="text-slate-500 text-base max-w-sm mx-auto font-medium">
+                                        直感で行きたい場所を選んでください。<br />AIがあなただけの物語（ルート）を紡ぎます。
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 pb-20">
