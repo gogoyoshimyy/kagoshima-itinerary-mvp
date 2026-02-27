@@ -17,17 +17,18 @@ import {
     verticalListSortingStrategy
 } from "@dnd-kit/sortable"
 import { SortableItem } from "./sortable-item"
-import { TripItem } from "@/types/planner"
+import { TripItem, TripSegment } from "@/types/planner"
 import { Clock, MapPin, X } from "lucide-react"
 
 interface TripTimelineProps {
     items: TripItem[]
+    segments: TripSegment[]
     setItems: React.Dispatch<React.SetStateAction<TripItem[]>>
     onRemoveItem: (id: string) => void
     onItemClick?: (id: string, lat: number, lng: number, name: string) => void
 }
 
-export function TripTimeline({ items, setItems, onRemoveItem, onItemClick }: TripTimelineProps) {
+export function TripTimeline({ items, segments, setItems, onRemoveItem, onItemClick }: TripTimelineProps) {
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -75,31 +76,17 @@ export function TripTimeline({ items, setItems, onRemoveItem, onItemClick }: Tri
                             <div className="absolute left-4 top-4 bottom-4 w-px bg-slate-200 -z-10 h-[calc(100%-2rem)]" />
 
                             {items.map((item, index) => {
-                                // Calculate distance and time to the NEXT item
+                                // Find the API segment for distance/time to the NEXT item
                                 let segmentInfo = null;
                                 if (index < items.length - 1) {
                                     const nextItem = items[index + 1]
+                                    const segment = segments.find(s => s.from_item_id === item.id && s.to_item_id === nextItem.id)
 
-                                    // Haversine formula for rough distance calculation
-                                    const R = 6371 // Radius of the earth in km
-                                    const dLat = (nextItem.lat - item.lat) * Math.PI / 180
-                                    const dLon = (nextItem.lng - item.lng) * Math.PI / 180
-                                    const a =
-                                        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                                        Math.cos(item.lat * Math.PI / 180) * Math.cos(nextItem.lat * Math.PI / 180) *
-                                        Math.sin(dLon / 2) * Math.sin(dLon / 2)
-                                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-                                    const distanceStraight = R * c // Distance in km
-
-                                    // Rough real-world estimation: multiply by 1.4 for road curvature
-                                    const distanceKm = distanceStraight * 1.4
-
-                                    // Assume average speed of 40km/h (city/local driving)
-                                    const timeMinutes = Math.round((distanceKm / 40) * 60)
-
-                                    segmentInfo = {
-                                        distance: distanceKm.toFixed(1),
-                                        time: timeMinutes
+                                    if (segment) {
+                                        segmentInfo = {
+                                            distance: (segment.distance_meters / 1000).toFixed(1),
+                                            time: Math.round(segment.duration_seconds / 60)
+                                        }
                                     }
                                 }
 

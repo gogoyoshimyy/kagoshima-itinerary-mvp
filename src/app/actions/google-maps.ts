@@ -67,7 +67,7 @@ export async function computeRoute(origin: { lat: number, lng: number }, dest: {
             headers: {
                 "Content-Type": "application/json",
                 "X-Goog-Api-Key": GOOGLE_API_KEY,
-                "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPath",
+                "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline",
             },
             body: JSON.stringify({
                 origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },

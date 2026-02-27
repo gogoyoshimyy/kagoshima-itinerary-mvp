@@ -9,10 +9,12 @@ import { RecommendationPanel } from "@/components/planner/recommendation-panel"
 import { ProgressConsultationCTA } from "@/components/planner/progress-cta"
 import { PlannerMap } from "@/components/planner/planner-map"
 import { SpotDetailModal } from "@/components/planner/spot-detail-modal"
-import { TripItem } from "@/types/planner"
+import { TripItem, TripSegment } from "@/types/planner"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { saveTripAction } from "@/app/actions/trip"
+import { computeRoute } from "@/app/actions/google-maps"
+import scrapedSpotsData from "@/data/scraped_spots.json"
 
 const INITIAL_ITEMS: TripItem[] = [
     // Leave empty for now, let DB load or start blank.
@@ -27,6 +29,7 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
 
     const [tripId, setTripId] = useState<string | null>(initialTripId || null)
     const [items, setItems] = useState<TripItem[]>(initialItems || INITIAL_ITEMS)
+    const [segments, setSegments] = useState<TripSegment[]>([])
     const [isSaving, setIsSaving] = useState(false)
     const isInitialMount = useRef(true)
     const [searchQuery, setSearchQuery] = useState("")
@@ -37,39 +40,81 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
     const [showDiscoverStartPoint, setShowDiscoverStartPoint] = useState(false)
     const [isSheetExpanded, setIsSheetExpanded] = useState(false)
 
-    // Hardcoded inspiration spots for MVP Discovery Mode (with reliable picsum images)
-    const INSPIRATION_SPOTS = useMemo(() => [
-        { id: "spot1", name: "仙巌園", lat: 31.6183, lng: 130.5791, place_id: "ChIJWz9Bw7hnPjUReS_nJ2vC_7I", image: "https://picsum.photos/seed/sengan/400/300", tags: ["絶景", "歴史"] },
-        { id: "spot2", name: "指宿砂むし温泉", lat: 31.2386, lng: 130.6432, place_id: "ChIJOwWjJk2DPPURx8_3XWvF-3g", image: "https://picsum.photos/seed/ibusuki/400/300", tags: ["リラックス", "ユニーク"] },
-        { id: "spot3", name: "桜島", lat: 31.5833, lng: 130.6500, place_id: "ChIJk2hZ8nRnPjURmN_GWeI49u24", image: "https://picsum.photos/seed/sakura/400/300", tags: ["大自然", "絶景"] },
-        { id: "spot4", name: "霧島神宮", lat: 31.8596, lng: 130.8703, place_id: "ChIJx23Fq8-KPzURX_GWeI49u24", image: "https://picsum.photos/seed/kirishima/400/300", tags: ["歴史", "パワースポット"] },
-        { id: "spot5", name: "奄美大島", lat: 28.3734, lng: 129.4941, place_id: null, image: "https://picsum.photos/seed/amami/400/300", tags: ["海", "世界遺産"] },
-        { id: "spot6", name: "屋久島", lat: 30.3396, lng: 130.5284, place_id: null, image: "https://picsum.photos/seed/yakushima/400/300", tags: ["森", "世界遺産"] },
-        { id: "spot7", name: "知覧特攻平和会館", lat: 31.3653, lng: 130.4502, place_id: "ChIJEW9R3c6LPzURW_GWeI49u24", image: "https://picsum.photos/seed/chiran/400/300", tags: ["歴史", "学び"] },
-        { id: "spot8", name: "城山展望台", lat: 31.5977, lng: 130.5516, place_id: null, image: "https://picsum.photos/seed/shiroyama/400/300", tags: ["絶景", "夜景"] },
-        { id: "spot9", name: "長崎鼻", lat: 31.1578, lng: 130.5841, place_id: "ChIJ61vjG1R3PPURX_GWeI49u24", image: "https://picsum.photos/seed/nagasakibana/400/300", tags: ["絶景", "海"] },
-        { id: "spot10", name: "池田湖", lat: 31.2294, lng: 130.5471, place_id: "ChIJbY4nC4J8PPURX_GWeI49u24", image: "https://picsum.photos/seed/ikedako/400/300", tags: ["湖", "自然"] },
-    ], [])
+    // Loaded inspiration spots from Kagoshima Kankou scraper
+    const INSPIRATION_SPOTS = useMemo(() => {
+        return scrapedSpotsData.map((spot, i) => ({
+            id: `spot_${i}`,
+            name: spot.spot_name,
+            lat: spot.lat,
+            lng: spot.lng,
+            place_id: spot.place_id,
+            image: spot.image_url || `https://picsum.photos/seed/kago${i}/400/300`,
+            tags: ["人気観光地"]
+        })).filter(s => s.lat !== 0 && s.lng !== 0); // keep only with valid geo
+    }, [])
 
-    // DB Auto-save effect
+    // DB Auto-save effect & Route Computation
     useEffect(() => {
         if (isInitialMount.current) {
             isInitialMount.current = false
             return
         }
 
-        const autoSave = async () => {
+        const autoSaveAndCompute = async () => {
+            console.log("autoSaveAndCompute started. items:", items.map(i => ({ id: i.id, name: i.spot_name, lat: i.lat, lng: i.lng })))
             setIsSaving(true)
+
+            // 1. Calculate routes for the new items array
+            const newSegments: TripSegment[] = []
+            for (let i = 0; i < items.length - 1; i++) {
+                const current = items[i]
+                const next = items[i + 1]
+
+                // Skip if either is a placeholder without coordinates
+                if (current.lat === 0 || next.lat === 0) {
+                    console.log(`Skipping segment ${i} to ${i + 1} due to 0 coords`)
+                    continue
+                }
+
+                try {
+                    console.log(`Computing route ${i}->${i + 1}: [${current.lat}, ${current.lng}] to [${next.lat}, ${next.lng}]`)
+                    const res = await computeRoute(
+                        { lat: current.lat, lng: current.lng },
+                        { lat: next.lat, lng: next.lng },
+                        'car' // MVP Default
+                    )
+
+                    if (res.success) {
+                        newSegments.push({
+                            id: `seg-${current.id}-${next.id}`,
+                            from_item_id: current.id,
+                            to_item_id: next.id,
+                            route_mode: 'car',
+                            distance_meters: res.distance_meters || 0,
+                            duration_seconds: res.duration_seconds || 0,
+                            estimated_cost_min: res.estimated_cost_min || 0,
+                            estimated_cost_max: res.estimated_cost_max || 0,
+                            warning_flags: []
+                        })
+                    }
+                } catch (e) {
+                    console.error("Failed to compute route for segment", e)
+                }
+            }
+            setSegments(newSegments)
+
+            // 2. Save to DB
             const res = await saveTripAction(tripId, items)
             if (res.success && res.tripId && res.tripId !== tripId) {
                 setTripId(res.tripId)
-                // Update URL silently
-                router.replace(`/planner/${res.tripId}`)
+                // Update URL silently while preserving query parameters like mode
+                const queryString = searchParams.toString() ? `?${searchParams.toString()}` : ''
+                router.replace(`/planner/${res.tripId}${queryString}`)
             }
             setIsSaving(false)
         }
 
-        const timeout = setTimeout(autoSave, 1500) // Debounce save by 1.5s
+        const timeout = setTimeout(autoSaveAndCompute, 1500) // Debounce save by 1.5s
         return () => clearTimeout(timeout)
     }, [items, tripId, router])
 
@@ -594,6 +639,7 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                                 <div className="flex-1 overflow-y-auto p-4 pb-32">
                                     <TripTimeline
                                         items={items}
+                                        segments={segments}
                                         setItems={setItems}
                                         onRemoveItem={handleRemoveSpot}
                                         onItemClick={(placeId, lat, lng, name) => setSelectedSpot({ placeId, lat, lng, spot_name: name })}
@@ -616,7 +662,10 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                                     </div>
                                 </div>
 
-                                <ProgressConsultationCTA />
+                                {/* Pinned CTA at the bottom of the column */}
+                                <div className="mt-auto">
+                                    <ProgressConsultationCTA />
+                                </div>
                             </>
                         )}
                     </div>
@@ -625,7 +674,7 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                 {/* Right Panel: Map */}
                 <section className={`flex-1 lg:flex-[3] relative bg-slate-200 transition-all duration-300 ${items.length > 0 ? 'block lg:h-full' : 'hidden lg:block'} order-1 lg:order-2`}>
                     <div className="absolute inset-0">
-                        <PlannerMap items={items} previewSpot={selectedSpot} />
+                        <PlannerMap items={items} segments={segments} previewSpot={selectedSpot} />
                     </div>
 
                     {/* Floating Indicator / Score */}
@@ -633,15 +682,19 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                         <div className="flex justify-between items-center mb-4">
                             <div>
                                 <span className="text-xs font-medium text-slate-500 block">総移動時間</span>
-                                <span className="font-bold text-slate-800">1h 30m</span>
+                                <span className="font-bold text-slate-800">
+                                    {Math.floor(segments.reduce((acc, seg) => acc + seg.duration_seconds, 0) / 3600)}h {Math.floor((segments.reduce((acc, seg) => acc + seg.duration_seconds, 0) % 3600) / 60)}m
+                                </span>
                             </div>
                             <div className="w-px h-8 bg-slate-200"></div>
                             <div>
                                 <span className="text-xs font-medium text-slate-500 block">概算費用</span>
-                                <span className="font-bold text-slate-800">¥ 1,500 ~ ¥ 3,000</span>
+                                <span className="font-bold text-slate-800">
+                                    ¥ {segments.reduce((acc, seg) => acc + (seg.estimated_cost_min || 0), 0).toLocaleString()} ~ ¥ {segments.reduce((acc, seg) => acc + (seg.estimated_cost_max || 0), 0).toLocaleString()}
+                                </span>
                             </div>
                         </div>
-                        <ItineraryScoreMeter />
+                        <ItineraryScoreMeter segments={segments} />
                     </div>
                 </section>
             </div>

@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useRef } from "react"
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet"
-import { TripItem } from "@/types/planner"
+import { TripItem, TripSegment } from "@/types/planner"
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 
@@ -16,6 +16,7 @@ L.Icon.Default.mergeOptions({
 
 interface PlannerMapClientProps {
     items: TripItem[]
+    segments?: TripSegment[]
     polylines?: string[] // unused in leaflet MVP
     previewSpot?: { lat: number, lng: number, spot_name: string } | null
 }

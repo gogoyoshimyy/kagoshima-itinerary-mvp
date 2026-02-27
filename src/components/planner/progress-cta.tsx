@@ -14,10 +14,9 @@ export function ProgressConsultationCTA() {
     }
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 md:left-80 md:right-[50%] lg:right-[calc(100vw-320px-512px)] bg-white border-t border-slate-200 shadow-[0_-8px_16px_-4px_rgba(0,0,0,0.05)] z-20">
+        <div className="w-full bg-white border-t border-slate-200 shadow-[0_-8px_16px_-4px_rgba(0,0,0,0.05)] z-20">
             <div className="p-4 flex items-center justify-between gap-4">
-
-                <div className="flex-1 max-w-xs">
+                <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
                         <span className="text-xs font-semibold text-slate-600">旅程の完成度</span>
                         <span className="text-sm font-bold text-slate-800">{progressPercent}%</span>
@@ -28,12 +27,12 @@ export function ProgressConsultationCTA() {
                             style={{ width: `${progressPercent}%` }}
                         ></div>
                     </div>
-                    <div className="mt-2 text-[10px] sm:text-xs text-slate-500 flex gap-3">
-                        <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                            <CheckCircle2 className="w-3 h-3" /> 行き先選定
+                    <div className="mt-2 text-[10px] sm:text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+                        <span className="flex items-center gap-1 text-emerald-600 font-medium whitespace-nowrap">
+                            <CheckCircle2 className="w-3 h-3 shrink-0" /> 行き先選定
                         </span>
                         <span className="flex items-center gap-1 text-amber-600 font-medium whitespace-nowrap">
-                            <AlertTriangle className="w-3 h-3" /> 移動時間の再確認
+                            <AlertTriangle className="w-3 h-3 shrink-0" /> 移動時間の再確認
                         </span>
                     </div>
                 </div>

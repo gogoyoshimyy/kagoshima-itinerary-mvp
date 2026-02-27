@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from 'next/dynamic'
-import { TripItem } from "@/types/planner"
+import { TripItem, TripSegment } from "@/types/planner"
 import { MapPin } from "lucide-react"
 
 const PlannerMapClient = dynamic(() => import('./planner-map-client'), {
@@ -16,10 +16,11 @@ const PlannerMapClient = dynamic(() => import('./planner-map-client'), {
 
 interface PlannerMapProps {
     items: TripItem[]
+    segments?: TripSegment[]
     polylines?: string[] // unused in leaflet MVP
     previewSpot?: { lat: number, lng: number, spot_name: string } | null
 }
 
-export function PlannerMap({ items, polylines, previewSpot }: PlannerMapProps) {
-    return <PlannerMapClient items={items} polylines={polylines} previewSpot={previewSpot} />
+export function PlannerMap({ items, segments, polylines, previewSpot }: PlannerMapProps) {
+    return <PlannerMapClient items={items} segments={segments} polylines={polylines} previewSpot={previewSpot} />
 }
