@@ -18,6 +18,13 @@ export default function ConsultPage() {
         email: "",
         phone: "",
         preferred_contact_method: "email",
+        hotel_arrangement: "none", // 'none' | 'request'
+        hotel_budget_per_night: "",
+        hotel_requests: "",
+        meal_arrangement: "none", // 'none' | 'lunch_only' | 'dinner_only' | 'both'
+        lunch_budget: "",
+        dinner_budget: "",
+        meal_requests: "",
         concerns_text: ""
     })
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -30,9 +37,40 @@ export default function ConsultPage() {
         // In Phase 2, tripId is still dummy
         const tripId = "dummy-trip-id"
 
+        // Build a comprehensive concerns string holding the hotel/meal budget info if requested
+        let finalConcerns = formData.concerns_text;
+
+        // Append Meal requests
+        if (formData.meal_arrangement !== 'none') {
+            let mealText = "【お食事手配を希望】\n";
+            if (formData.meal_arrangement === 'lunch_only' || formData.meal_arrangement === 'both') {
+                mealText += ` - ランチ予算: 1名あたり ${formData.lunch_budget || '設定なし'}円程度\n`;
+            }
+            if (formData.meal_arrangement === 'dinner_only' || formData.meal_arrangement === 'both') {
+                mealText += ` - 夕食予算: 1名あたり ${formData.dinner_budget || '設定なし'}円程度\n`;
+            }
+            if (formData.meal_requests.trim() !== '') {
+                mealText += ` - ご要望: ${formData.meal_requests}\n`;
+            }
+            finalConcerns = mealText + "\n" + finalConcerns;
+        }
+
+        // Append Hotel requests
+        if (formData.hotel_arrangement === 'request') {
+            let hotelText = `【宿泊先手配を希望】予算: 1名1泊あたり ${formData.hotel_budget_per_night || '設定なし'}円程度\n`;
+            if (formData.hotel_requests.trim() !== '') {
+                hotelText += ` - ご要望: ${formData.hotel_requests}\n`;
+            }
+            finalConcerns = hotelText + "\n" + finalConcerns;
+        }
+
         const res = await submitConsultationLead({
             trip_plan_id: tripId, // Normally this comes from URL params
-            ...formData
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            preferred_contact_method: formData.preferred_contact_method,
+            concerns_text: finalConcerns
         })
 
         setIsSubmitting(false)
@@ -142,6 +180,131 @@ export default function ConsultPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                            </div>
+
+                            <div className="border border-slate-200 rounded-lg p-5 space-y-4 bg-white/50">
+                                <h4 className="font-semibold text-slate-800 border-b pb-2">宿泊先の手配について</h4>
+                                <div className="space-y-2">
+                                    <Label htmlFor="hotel_arrangement">旅行会社での手配を希望しますか？</Label>
+                                    <Select
+                                        value={formData.hotel_arrangement}
+                                        onValueChange={v => setFormData({ ...formData, hotel_arrangement: v })}
+                                    >
+                                        <SelectTrigger id="hotel_arrangement" className="bg-white">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">自分で手配する・不要</SelectItem>
+                                            <SelectItem value="request">手配を希望する（予算を指定）</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {formData.hotel_arrangement === 'request' && (
+                                    <div className="space-y-4 pt-4 border-t mt-4 border-slate-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="hotel_budget">1名1泊あたりのご予算</Label>
+                                            <div className="flex gap-2 items-center">
+                                                <Input
+                                                    id="hotel_budget"
+                                                    type="number"
+                                                    className="bg-white max-w-[200px]"
+                                                    value={formData.hotel_budget_per_night}
+                                                    onChange={e => setFormData({ ...formData, hotel_budget_per_night: e.target.value })}
+                                                    placeholder="例: 15000"
+                                                    min="0"
+                                                    step="1000"
+                                                />
+                                                <span className="text-sm font-medium text-slate-600">円 程度</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="hotel_requests">宿泊に関するご要望（任意）</Label>
+                                            <Textarea
+                                                id="hotel_requests"
+                                                className="min-h-[80px]"
+                                                value={formData.hotel_requests}
+                                                onChange={e => setFormData({ ...formData, hotel_requests: e.target.value })}
+                                                placeholder="例: オーシャンビューの部屋が希望、温泉付き、和室が良い、朝食付き など"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border border-slate-200 rounded-lg p-5 space-y-4 bg-white/50">
+                                <h4 className="font-semibold text-slate-800 border-b pb-2">お食事のリクエスト</h4>
+                                <div className="space-y-2">
+                                    <Label htmlFor="meal_arrangement">旅行会社での事前手配（予約・提案）を希望しますか？</Label>
+                                    <Select
+                                        value={formData.meal_arrangement}
+                                        onValueChange={v => setFormData({ ...formData, meal_arrangement: v, lunch_budget: "", dinner_budget: "" })}
+                                    >
+                                        <SelectTrigger id="meal_arrangement" className="bg-white">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">自分で探す・不要</SelectItem>
+                                            <SelectItem value="both">ランチ・夕食ともに希望</SelectItem>
+                                            <SelectItem value="lunch_only">ランチのみ希望</SelectItem>
+                                            <SelectItem value="dinner_only">夕食のみ希望</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {formData.meal_arrangement !== 'none' && (
+                                    <div className="space-y-4 pt-4 border-t mt-4 border-slate-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {(formData.meal_arrangement === 'lunch_only' || formData.meal_arrangement === 'both') && (
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="lunch_budget">ランチのご予算（1名あたり）</Label>
+                                                    <div className="flex gap-2 items-center">
+                                                        <Input
+                                                            id="lunch_budget"
+                                                            type="number"
+                                                            className="bg-white max-w-[200px]"
+                                                            value={formData.lunch_budget}
+                                                            onChange={e => setFormData({ ...formData, lunch_budget: e.target.value })}
+                                                            placeholder="例: 2000"
+                                                            min="0"
+                                                            step="500"
+                                                        />
+                                                        <span className="text-sm font-medium text-slate-600">円 程度</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {(formData.meal_arrangement === 'dinner_only' || formData.meal_arrangement === 'both') && (
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="dinner_budget">夕食のご予算（1名あたり）</Label>
+                                                    <div className="flex gap-2 items-center">
+                                                        <Input
+                                                            id="dinner_budget"
+                                                            type="number"
+                                                            className="bg-white max-w-[200px]"
+                                                            value={formData.dinner_budget}
+                                                            onChange={e => setFormData({ ...formData, dinner_budget: e.target.value })}
+                                                            placeholder="例: 5000"
+                                                            min="0"
+                                                            step="1000"
+                                                        />
+                                                        <span className="text-sm font-medium text-slate-600">円 程度</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="meal_requests">お食事に関するご要望・アレルギー等（任意）</Label>
+                                            <Textarea
+                                                id="meal_requests"
+                                                className="min-h-[80px]"
+                                                value={formData.meal_requests}
+                                                onChange={e => setFormData({ ...formData, meal_requests: e.target.value })}
+                                                placeholder="例: 海鮮系の美味しいお店、甲殻類アレルギー1名あり、個室希望 など"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-2">

@@ -35,3 +35,29 @@ model TripItem {
 
   @@index([tripId])
 }
+
+model Spot {
+  id          String   @id @default(cuid())
+  externalId  String   @unique  // ID from kagoshima-kankou.com (e.g. "10674")
+  name        String
+  nameKana    String?
+  url         String?
+  address     String?
+  phone       String?
+  hours       String?
+  closed      String?
+  fee         String?
+  access      String?
+  parking     String?
+  website     String?
+  lat         Float?
+  lng         Float?
+  placeId     String?  // Google Places ID (filled lazily on first search)
+  area        String?  // e.g. 霧島, 指宿, 鹿児島市, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+  @@index([area])
+}
+

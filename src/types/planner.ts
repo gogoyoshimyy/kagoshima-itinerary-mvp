@@ -12,6 +12,7 @@ export interface TripItem {
     place_id?: string | null
     type?: 'spot' | 'lunch_placeholder' | 'dinner_placeholder'
     budget?: string
+    estimated_fee?: number // Used for spot admission fees or fixed costs
 }
 
 export interface TripSegment {

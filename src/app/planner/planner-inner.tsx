@@ -9,6 +9,8 @@ import { RecommendationPanel } from "@/components/planner/recommendation-panel"
 import { ProgressConsultationCTA } from "@/components/planner/progress-cta"
 import { PlannerMap } from "@/components/planner/planner-map"
 import { SpotDetailModal } from "@/components/planner/spot-detail-modal"
+import { AreaSelector, type RegionId } from "@/components/planner/area-selector"
+import { AICourseGenerator } from "@/components/planner/ai-course-generator"
 import { TripItem, TripSegment } from "@/types/planner"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -39,6 +41,7 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
     const [selectedInspirationSpots, setSelectedInspirationSpots] = useState<string[]>([])
     const [showDiscoverStartPoint, setShowDiscoverStartPoint] = useState(false)
     const [isSheetExpanded, setIsSheetExpanded] = useState(false)
+    const [selectedArea, setSelectedArea] = useState<RegionId>('all')
 
     // Loaded inspiration spots from Kagoshima Kankou scraper
     const INSPIRATION_SPOTS = useMemo(() => {
@@ -73,6 +76,12 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                 // Skip if either is a placeholder without coordinates
                 if (current.lat === 0 || next.lat === 0) {
                     console.log(`Skipping segment ${i} to ${i + 1} due to 0 coords`)
+                    continue
+                }
+
+                // Skip route computation across day boundaries
+                if ((current.day_index ?? 0) !== (next.day_index ?? 0)) {
+                    console.log(`Skipping cross-day segment: day${current.day_index} -> day${next.day_index}`)
                     continue
                 }
 
@@ -230,6 +239,7 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                         onItemClick={(placeId, lat, lng, name) => setSelectedSpot({ placeId, lat, lng, spot_name: name })}
                         mode={mode}
                         items={items}
+                        selectedArea={selectedArea as any}
                     />
                 </div>
             </aside>
@@ -254,7 +264,27 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                     )}
                     <div className="flex-1 overflow-y-auto flex flex-col">
                         {items.length === 0 ? (
-                            mode === 'schedule' ? (
+                            mode === 'ai_generate' ? (
+                                <div className="flex-1 flex flex-col h-full overflow-y-auto">
+                                    <div className="p-6">
+                                        <div className="flex items-center gap-2 mb-6">
+                                            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-md">
+                                                <span className="text-lg">✨</span>
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-bold text-slate-900">AIコース自動生成</h2>
+                                                <p className="text-xs text-slate-500">1,400件のスポットから最適なコースを設計</p>
+                                            </div>
+                                        </div>
+                                        <AICourseGenerator
+                                            onCourseReady={(newItems) => {
+                                                setItems(newItems)
+                                            }}
+                                            onClose={() => { }}
+                                        />
+                                    </div>
+                                </div>
+                            ) : mode === 'schedule' ? (
                                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 overflow-y-auto bg-white/40 backdrop-blur-sm">
                                     <div className="space-y-4">
                                         <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center shadow-xl mx-auto rotate-3 group-hover:rotate-0 transition-transform">
@@ -620,7 +650,7 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                             </div>
                         ) : (
                             <>
-                                <header className="p-4 bg-white border-b border-slate-200 shadow-sm z-10 flex justify-between items-center">
+                                <header className="p-4 bg-white border-b border-slate-200 shadow-sm z-10 flex justify-between items-center shrink-0">
                                     <h1 className="text-xl font-bold text-slate-800">旅程ビルダー</h1>
                                     {isSaving ? (
                                         <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -634,9 +664,12 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                                         </div>
                                     )}
                                 </header>
-                                <p className="px-4 pt-4 text-sm text-slate-500">{days}日間 • {mobility === 'car' ? '車中心' : '公共交通中心'}</p>
+                                <p className="px-4 py-3 text-sm text-slate-500 bg-white border-b border-slate-100 shrink-0">{days}日間 • {mobility === 'car' ? '車中心' : '公共交通中心'}</p>
 
                                 <div className="flex-1 overflow-y-auto p-4 pb-32">
+
+                                    <AreaSelector selectedArea={selectedArea} onAreaChange={setSelectedArea} />
+
                                     <TripTimeline
                                         items={items}
                                         segments={segments}
@@ -688,9 +721,9 @@ export function PlannerInner({ initialTripId, initialItems }: { initialTripId?: 
                             </div>
                             <div className="w-px h-8 bg-slate-200"></div>
                             <div>
-                                <span className="text-xs font-medium text-slate-500 block">概算費用</span>
+                                <span className="text-xs font-medium text-slate-500 block">概算費用 (移動＋個別)</span>
                                 <span className="font-bold text-slate-800">
-                                    ¥ {segments.reduce((acc, seg) => acc + (seg.estimated_cost_min || 0), 0).toLocaleString()} ~ ¥ {segments.reduce((acc, seg) => acc + (seg.estimated_cost_max || 0), 0).toLocaleString()}
+                                    ¥ {(segments.reduce((acc, seg) => acc + (seg.estimated_cost_min || 0), 0) + items.reduce((acc, item) => acc + (item.estimated_fee || 0), 0)).toLocaleString()} ~ ¥ {(segments.reduce((acc, seg) => acc + (seg.estimated_cost_max || 0), 0) + items.reduce((acc, item) => acc + (item.estimated_fee || 0), 0)).toLocaleString()}
                                 </span>
                             </div>
                         </div>
